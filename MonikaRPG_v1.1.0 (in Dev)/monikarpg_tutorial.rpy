@@ -37,7 +37,7 @@ label rpg_tutorial_mechanics:
         "HP":
             m 6esd "You'll start with 100 HP."
             m 7esc "If you try to heal, you cannot heal over this amount." 
-            m 1esa "If your HP drops to 0, you lose!"
+            m 1esa "At low health, you'll deal extra damage, but if your HP drops to 0, you lose!"
             jump rpg_tutorial_mechanics
 
         "Mana":
@@ -106,7 +106,7 @@ label rpg_tutorial_spells:
             jump rpg_tutorial_spells
 
         "Fire Sword":
-            m 3esa "This spell costs 25 mana and greatly increases your next basic attack!"
+            m 3esa "This spell costs 25 mana and greatly increases your next attack or parry!"
             m 4gssdrb "And I'm not kidding when I say greatly..."
             m 7ksa "Psst, I also heard that this spell was kept as a tribute to \"m-grap,\" who made the first RPG submod!"
             jump rpg_tutorial_spells

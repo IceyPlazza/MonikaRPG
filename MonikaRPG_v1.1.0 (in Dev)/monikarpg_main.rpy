@@ -80,15 +80,15 @@ label rpg_setup:
     menu:
         "Choose your difficulty."
         "Easy":
-            $ mhpmax = 1000 # Max Monika HP
+            $ mhpmax = 1250 # Max Monika HP
             $ m_diff = 0.90 # Monika's difficulty multiplier (used to calculate damage)
             $ m_hitrate = 85 # Monika's hitrate (Ex. 85% chance to land a hit on you)
         "Normal":
-            $ mhpmax = 1250
+            $ mhpmax = 1500
             $ m_diff = 1
             $ m_hitrate = 90
         "Hard":
-            $ mhpmax = 1500
+            $ mhpmax = 1750
             $ m_diff = 1.125
             $ m_hitrate = 95
         "Impossible":
@@ -105,31 +105,42 @@ label rpg_setup:
     $ potions = 10 # Health potions count
     $ mana = 0 # Player's mana. Cannot surpass 100.
     $ phase2 = 0 # Monika's phase 2. 0 when inactive, 10 when active (Also factors into damage calculations)
+    $ atk_buff = 0 # Currently used for Fire Sword's bonus damage. Might give extra uses later.
 
     # Spell related effects
+    # Player buffs
+    $ sword_buff = 0 # Damage buff from fire sword spell
     $ protect = 1 # Multiplier for how much damage for player to take. When protect spell is active, multiplier is less than one. Otherwise, remains 1
     $ protect_turn = 0 # Turn counter for protect spell activation. 0 when inactive, >0 when active.
-    $ atk_buff = 0 # Currently used for Fire Sword's bonus damage. Might give extra uses later.
-    $ burn_turn = 0 # Turn counter for burning status effect. 0 when inactive, >0 when active.
-    $ burn = 0 # Burn damage for Monika to take. Will get randomized while burn is active.
-    $ freeze_turn = 0 # Turn counter for frozen status effect. 0 when inactive, >0 when active.
     $ swift_turn = 0 # Turn counter for swift buff effect. 0 when inactive, >0 when active.
     $ swift = 0 # Evasion Bonus to grant. Will get randomized while active.
     $ heal_turn = 0 # Turn counter for lingering heals buff effect. 0 when inactive, >0 when active.
+
+    # Monika debuffs
+    $ burn_turn = 0 # Turn counter for burning status effect. 0 when inactive, >0 when active.
+    $ burn = 0 # Burn damage for Monika to take. Will get randomized while burn is active.
+    $ poison_turn = 0 # Turn counter for poisoned status effect. 0 when inactive, >0 when active.
+    $ poison = 0 # Poison damage for Monika to take. Will get randomized while burn is active.
+    $ freeze_turn = 0 # Turn counter for frozen status effect. 0 when inactive, >0 when active.
     jump rpg_menu
 
 # isolated this to fix an unintended mana spam by cancel cast
-label rpg_regen_mana:
+label rpg_preturn_checks:
     $ mana = mana + random.randrange(3,9) # Regen Mana. Bonus mana regened if at low health.
     if php <= 30:
         "You're at critical health!"
+        $ atk_buff += random.randrange(10,16)
         $ mana = mana + random.randrange(2,5)
     elif php <= 55:
         "You are stressed."
+        $ atk_buff += random.randrange(5,9)
         $ mana = mana + random.randrange(1,3)
+    else:
+        $ atk_buff = 0 # Ensures atk_buffs don't stack if we stay too low hp
     if mana >= 100:
         $ mana = 100
         "Your mana is full!"
+    jump rpg_menu
 
 # main menu for actions you can take
 label rpg_menu:
@@ -138,14 +149,14 @@ label rpg_menu:
     menu:
         extend ""
         "Attack ([m_name]'s HP: [mhp])":
-            $ attack = random.randrange(15,51) + atk_buff
+            $ attack = random.randrange(15,51) + atk_buff + sword_buff
             # $ attack = 800 # FOR DEBUGGING PURPOSES AND QUICK SKIPPING TESTING
             m 1wud "{nw}"
             "You dealt [attack] damage."
             $ mhp = mhp - attack
             if mhp < 0:
                 $ mhp = 0
-            $ atk_buff = 0
+            $ sword_buff = 0
             jump rpg_monika
 
         "Parry (Evasion Bonus: [swift])":
@@ -153,16 +164,17 @@ label rpg_menu:
             if parry <= 35:
                 m 6wud "{nw}"
                 "You successfully parried!"
-                $ attack = random.randrange(35,71) + atk_buff
-                $ atk_buff = 0
+                $ attack = random.randrange(35,66) + atk_buff + sword_buff
+                $ sword_buff = 0
                 m 6cuo "{nw}"
                 "[m_name] took [attack] reflection damage!"
                 $ mhp = mhp - attack
                 m 1efa "{nw}"
-                if swift_turn > 0:
-                    $ swift = random.randrange(15,31)
-                call rpg_regen_mana
-                jump rpg_menu
+                if swift > 0:
+                    $ swift -= random.randrange(8,18)
+                    if swift < 0:
+                        $ swift = 0
+                jump rpg_preturn_checks
             else:
                 "You failed to parry."
                 jump rpg_monika
@@ -182,7 +194,7 @@ label rpg_menu:
             m 1ekd "You're surrendering, [player]?"
             if turn_counter < 5:
                 $ persistent._monikarpg_stats["early_quits"] += 1
-                if persistent._monikarpg_stats["early_quits"] mod 5 == 0:
+                if persistent._monikarpg_stats["early_quits"] % 5 == 0:
                     m 2esd "...{w=0.5} [player], you've been abandoning the game too frequently." #TODO add expressions
                     m 2msc "Please take this a little more seriously."
                 else:
@@ -193,7 +205,7 @@ label rpg_menu:
                 m 3eka "You must keep practicing if you want beat me!"
                 m 1gka "Well... Maybe next time."
                 $ persistent._monikarpg_stats["losses"] += 1
-                $ mas_gainAffection(0.1,m_diff+0.1,False)
+                $ mas_gainAffection(0.5,m_diff+0.1,False)
             $ play_song(persistent.current_track)
             return
 
@@ -205,12 +217,12 @@ label choose_spell:
         "Cast a spell:"
         "Greater Heal (Cost: 30 Mana)":
             if mana >= 30:
-                $ heal_amt = random.randrange(60,80)
+                $ heal_amt = random.randrange(55,66)
                 $ php = php + heal_amt
                 if php > 100:
                     $ php = 100
                 $ mana = mana - 30
-                "You rejuvinate yourself. You healed [heal_amt] hp!"
+                "You rejuvinate yourself. You healed [heal_amt] HP!"
                 $ heal_turn = 4
                 jump rpg_monika
             else:
@@ -220,7 +232,7 @@ label choose_spell:
         "Fire Sword (Cost: 25 Mana)":
             if mana >= 25:
                 "You ignite your sword. Your next attack will inflict more damage."
-                $ atk_buff = random.randrange(50,121)
+                $ sword_buff = random.randrange(60,131)
                 $ mana = mana - 25
                 jump rpg_monika
             else:
@@ -230,10 +242,11 @@ label choose_spell:
         "Freeze (Cost: 20 Mana)":
             if mana >= 20:
                 "You cast a cold wind on [m_name]."
-                if random.randrange(1,101) > 15:
+                $ freeze_chance = random.randrange(1,101)
+                if freeze_chance > 10:
+                    $ freeze_turn = 4
                     m 6wud "{nw}"
-                    "[m_name] is frozen!"
-                    $ freeze_turn = 3
+                    "[m_name] is frozen! [m_name] will be frozen for the next [freeze_turn] turns!"
                 else: 
                     "[m_name] endured. Freeze failed!"
                 $ mana = mana - 20
@@ -242,15 +255,30 @@ label choose_spell:
                 "You don't have enough Mana."
                 jump rpg_menu
 
+        "Poison Mist (Cost: 15 Mana)":
+            if mana >= 15:
+                $ poison_chance = random.randrange(1,101)
+                "You cast a poisonous mist towards [m_name]."
+                $ mana = mana - 15
+                if poison_chance > 15:
+                    $ poison_turn = 5
+                    m 6wud "{nw}"
+                    "[m_name] is poisoned! [m_name] will take poison damage for the next [poison_turn] turns!"
+                jump rpg_monika
+            else:
+                "You don't have enough Mana."
+                jump rpg_menu
+
         "Fireball (Cost: 15 Mana)":
             if mana >= 15:
-                $ fb_dmg = random.randrange(55,76)
+                $ fb_dmg = random.randrange(65,111)
                 $ burn_chance = random.randrange(1,101)
+                m 6wud "{nw}"
                 "You unleash a great fireball. You deal [fb_dmg] damage."
                 $ mana = mana - 15
-                if burn_chance <= 25:
-                    "[m_name] is set ablaze!"
+                if burn_chance <= 40:
                     $ burn_turn = 5
+                    "[m_name] is set ablaze! [m_name] will burn for the next [burn_turn] turns!"
                 jump rpg_monika
             else:
                 "You don't have enough Mana."
@@ -258,8 +286,8 @@ label choose_spell:
 
         "Swift (Cost: 15 Mana)":
             if mana >= 15:
-                "You cast a buff on yourself. Your evasion increased!"
                 $ swift_turn = 4
+                "You cast a buff on yourself. Your evasion increased for the next [swift_turn] turns!"
                 $ mana = mana - 15
                 jump rpg_monika
             else:
@@ -269,7 +297,7 @@ label choose_spell:
         "Protect (Cost: 15 Mana)":
             if mana >= 15:
                 $ protect_turn = 4
-                "You shielded yourself. You will take less damage for the next [protect_turn] turns."
+                "You shielded yourself. You will take less damage for the next [protect_turn] turns!"
                 $ mana = mana - 15
                 jump rpg_monika
             else:
@@ -291,23 +319,24 @@ label rpg_heal_sequence:
         "Use on yourself":
             $ heal_amt = random.randrange(40,56)
             $ php = php + heal_amt
-            "You healed [heal_amt] hp!"
+            "You healed [heal_amt] HP!"
             if php > 100:
                 $ php = 100
             $ potions = potions - 1
             jump rpg_monika
 
         "Use on [m_name]":
-            $ heal_amt = random.randrange(50,101)
+            # You dare-devil ;)
+            $ heal_amt = random.randrange(60,121)
             $ mhp = mhp + heal_amt
             if mhp > mhpmax:
                 $ mhp = mhpmax
             $ potions = potions - 1
-            "[m_name] healed [heal_amt] hp!"
+            "[m_name] healed [heal_amt] HP!"
             m 6tko "Wait... you used a health potion on me?"
             m 5tubla "How sweet of you~"
             m 4eud "But this doesn't help your chances of winning!"
-            $ mas_gainAffection(0.0125,m_diff+0.1,False)
+            $ mas_gainAffection(0.1,m_diff+0.2,False)
             jump rpg_monika
 
         "Don't use":
@@ -337,37 +366,49 @@ label rpg_boop_sequence:
 # Monika's turn! And logic for status effects that should happen during her turn.
 label rpg_monika:
     $ turn_counter += 1
-    "[m_name]'s turn."
     # Different status effect messages to change and check for.
+
+    #These are all player buffs
     if protect_turn > 0:
         "You are shielding yourself. Your shield will wear off in [protect_turn] turn(s)."
-        $ protect = (float)(random.randrange(1,4))/7.5
+        $ protect = (float)(random.randrange(1,4))/7.75
         $ protect_turn = protect_turn - 1
     else:
         $ protect = 1
     if heal_turn > 0:
         $ heal_amt = random.randrange(8,13)
-        "You feel traces of healing. You heal [heal_amt] hp. The lingering traces will end in [heal_turn] turn(s)."
+        "Traces of healing heals you for [heal_amt] HP. The lingering traces will end in [heal_turn] turn(s)."
         $ php = php + heal_amt
         if php > 100:
             $ php = 100
         $ heal_turn = heal_turn - 1
     if swift_turn > 0:
         "You feel fast. Your swiftness will end in [swift_turn] turn(s)."
-        $ swift = random.randrange(15,31)
+        $ swift = random.randrange(25,61)
         $ swift_turn = swift_turn - 1
     else:
         $ swift = 0
+
+    "[m_name]'s turn."
+
+    # Start Monika debuff logic
     if burn_turn > 0:
-        $ burn = random.randrange(5,13)
+        $ burn = random.randrange(30,46)
         m 6wud "{nw}"
-        "[m_name] is burning! (-[burn] hp)" 
+        "[m_name] is burning! (-[burn] HP)" 
         "[m_name] will stop burning in [burn_turn] turn(s)."
         $ burn_turn = burn_turn-1
         $ mhp = mhp-burn
+    if poison_turn > 0:
+        $ poison = random.randrange(25,36)
+        m 6wud "{nw}"
+        "[m_name] is poisoned! (-[poison] HP)" 
+        "[m_name] will detoxify in [poison_turn] turn(s)."
+        $ poison_turn =- 1
+        $ mhp = mhp-poison
 
     # Sandwiched between to make sure phase 2 and win triggers properly, even if frozen.
-    if mhp <= mhpmax*0.4 and phase2 == 0:
+    if (mhp <= mhpmax*0.4 or turn_counter == 50) and phase2 == 0:
         jump rpg_monika_phase2
     if mhp <= 0:
         jump rpg_win
@@ -378,8 +419,7 @@ label rpg_monika:
         "[m_name] is frozen!" 
         "She will unfreeze in [freeze_turn] turn(s)."
         $ freeze_turn = freeze_turn - 1
-        call rpg_regen_mana
-        jump rpg_menu
+        jump rpg_preturn_checks
     else: 
         $ rng = renpy.random.randint (1, 4)
         if rng == 1:
@@ -395,10 +435,13 @@ label rpg_monika:
 
 # Monika does a basic attack (Will add more skills later)
 label rpg_monika_attack:
+    if phase2 > 0:
+        $ m_heal = random.randrange(5,11)
+        "[m_name] heals [m_heal] HP!"
     m 1efa "{nw}"
-    $ ran_miss = random.randrange(0,100)
-    if (m_hitrate - swift) > ran_miss:
-        $ mattack = (int)(round((random.randrange(15,35) + phase2) * protect * m_diff))
+    $ ran_miss = random.randrange(1,101)
+    if (m_hitrate - swift*0.9) >= ran_miss:
+        $ mattack = (int)(round((random.randrange(15,36) + phase2) * protect * m_diff))
         "[m_name] deals [mattack] damage."
         $ php = php - mattack
     else:
@@ -406,30 +449,35 @@ label rpg_monika_attack:
     if php <= 0:
         jump rpg_lose
     else:
-        call rpg_regen_mana
-        jump rpg_menu
+        jump rpg_preturn_checks
     return
 
 # Monika is now scary...
 label rpg_monika_phase2:
     stop music fadeout 2.5
-    m 1dusdld "*deep breath*"
-    m 1eusdld "Well..."
-    m 1eusdlc "I think I underestimated you [player]."
-    m 1wfa "But we are not finished."
+
+    if turn_counter == 50:
+        m 2dsc "*sigh* This fight has been dragged on for a little too long..."
+        m 7wfb "How about I put a quick end to this?"
+    else: 
+        m 1dusdld "*deep breath*"
+        m 1eusdld "Well..."
+        m 1eusdlc "I think I underestimated you [player]."
+        m 1wfa "But we are not finished."
+
     call mas_change_weather (mas_weather_thunder, by_user=False)
-    m 1wfb "MY BLOOD BOILS!"
-    m 1wfb "FACE ME{w=1}, [player]!"
-    $ phase2 = 10
+    m 2wfb "HOW MY BLOOD BOILS!"
+    $ play_song("<loop 0.01>/mod_assets/bgm/eurobeatreality.ogg")
+    m 1cfb "FACE ME{w=1}, [player]!"
+    $ phase2 = 13
     $ m_hitrate = m_hitrate + 5
-    if burn_turn > 0 or freeze_turn > 0:
+    if burn_turn > 0 or freeze_turn > 0 or poison_turn > 0:
         $ freeze_turn = 0
         $ burn_turn = 0
+        $ poison_turn = 0
         "[m_name] cleared all status effects!"
     "[m_name] will permanently inflict more damage."
-    $ play_song("<loop 0.01>/mod_assets/bgm/eurobeatreality.ogg")
-    call rpg_regen_mana
-    jump rpg_menu
+    jump rpg_preturn_checks
     return
 
 # Aww, you lost.
@@ -443,7 +491,7 @@ label rpg_lose:
     m 7hua "But maybe you will have better luck next time."
     m 5hubla "Hehehe~"
     $ play_song(persistent.current_track)
-    $ mas_gainAffection(0.25,m_diff+0.1,False)
+    $ mas_gainAffection(1,m_diff+0.1,False)
     return
 
 # Congrats! You won!
@@ -463,5 +511,5 @@ label rpg_win:
     m 2tsbla "I didn't think you could beat me."
     m 5ekbfa "That was so much fun, [mas_get_player_nickname()]."
     m 5skbfb "Maybe we should fight again sometime."
-    $ mas_gainAffection(0.75,m_diff+0.1,False)
+    $ mas_gainAffection(2,m_diff+0.1,False)
     return
