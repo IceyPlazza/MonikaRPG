@@ -3,8 +3,6 @@
 # Monika's special skills
 # Icons and/or color tints for status effects
 
-python early:
-    import random
 
 # Unlocking the game conditions
 init 5 python:
@@ -106,27 +104,29 @@ label rpg_setup:
     $ swift_turn = 0 # Turn counter for swift buff effect. 0 when inactive, >0 when active.
     $ swift = 0 # Evasion Bonus to grant. Will get randomized while active.
     $ heal_turn = 0 # Turn counter for lingering heals buff effect. 0 when inactive, >0 when active.
-    jump rpg_menu
+    jump rpg_turn_start
 
-# main menu for actions you can take
-label rpg_menu:
+# Start of player's turn
+label rpg_turn_start:
 
-    $ mana = mana + random.randrange(3,9) # Regen Mana. Bonus mana regened if at low health.
+    $ mana = mana + renpy.random.randint(3, 8) # Regen Mana. Bonus mana regened if at low health.
     if php <= 30:
         "You're at critical health!"
-        $ mana = mana + random.randrange(2,5)
+        $ mana = mana + renpy.random.randint(2, 4)
     elif php <= 55:
         "You are stressed."
-        $ mana = mana + random.randrange(1,3)
+        $ mana = mana + renpy.random.randint(1, 2)
     if mana >= 100:
         $ mana = 100
         "Your mana is full!"
 
+# Main menu for actions you can take
+label rpg_menu:
     m 1hfa "Your turn." 
     menu:
         extend ""
         "Attack ([m_name]'s HP: [mhp])":
-            $ attack = random.randrange(15,51) + atk_buff
+            $ attack = renpy.random.randint(15, 50) + atk_buff
             # $ attack = 800 # FOR DEBUGGING PURPOSES AND QUICK SKIPPING TESTING
             m 1wud "{nw}"
             "You dealt [attack] damage."
@@ -137,19 +137,21 @@ label rpg_menu:
             jump rpg_monika
 
         "Parry (Evasion Bonus: [swift])":
-            $ parry = random.randrange(1,101) - swift
+            $ parry = renpy.random.randint(1, 100) - swift
             if parry <= 35:
                 m 6wud "{nw}"
                 "You successfully parried!"
-                $ attack = random.randrange(35,71) + atk_buff
+                $ attack = renpy.random.randint(35, 70) + atk_buff
                 $ atk_buff = 0
                 m 6cuo "{nw}"
                 "[m_name] took [attack] reflection damage!"
                 $ mhp = mhp - attack
+                if mhp <= 0:
+                    jump rpg_win
                 m 1efa "{nw}"
                 if swift_turn > 0:
-                    $ swift = random.randrange(15,31)
-                jump rpg_menu
+                    $ swift = renpy.random.randint(15, 30)
+                jump rpg_turn_start
             else:
                 "You failed to parry."
                 jump rpg_monika
@@ -175,6 +177,8 @@ label rpg_menu:
                 m 3eka "You must keep practicing if you want beat me!"
                 m 1gka "Well... Maybe next time."
                 $ mas_gainAffection(0.1,m_diff+0.1,False)
+            if phase2 > 0:
+                call mas_change_weather (mas_weather_def, by_user=False)
             $ play_song(persistent.current_track)
             return
 
@@ -184,12 +188,12 @@ label choose_spell:
         "Cast a spell:"
         "Greater Heal (Cost: 30 Mana)":
             if mana >= 30:
-                $ heal_amt = random.randrange(60,80)
+                $ heal_amt = renpy.random.randint(60, 79)
                 $ php = php + heal_amt
                 if php > 100:
                     $ php = 100
                 $ mana = mana - 30
-                "You rejuvinate yourself. You healed [heal_amt] hp!"
+                "You rejuvenate yourself. You healed [heal_amt] hp!"
                 $ heal_turn = 4
                 jump rpg_monika
             else:
@@ -199,7 +203,7 @@ label choose_spell:
         "Fire Sword (Cost: 25 Mana)":
             if mana >= 25:
                 "You ignite your sword. Your next attack will inflict more damage."
-                $ atk_buff = random.randrange(50,121)
+                $ atk_buff = renpy.random.randint(50, 120)
                 $ mana = mana - 25
                 jump rpg_monika
             else:
@@ -209,7 +213,7 @@ label choose_spell:
         "Freeze (Cost: 20 Mana)":
             if mana >= 20:
                 "You cast a cold wind on [m_name]."
-                if random.randrange(1,101) > 15:
+                if renpy.random.randint(1, 100) > 15:
                     m 6wud "{nw}"
                     "[m_name] is frozen!"
                     $ freeze_turn = 3
@@ -223,9 +227,10 @@ label choose_spell:
 
         "Fireball (Cost: 15 Mana)":
             if mana >= 15:
-                $ fb_dmg = random.randrange(55,76)
-                $ burn_chance = random.randrange(1,101)
+                $ fb_dmg = renpy.random.randint(55, 75)
+                $ burn_chance = renpy.random.randint(1, 100)
                 "You unleash a great fireball. You deal [fb_dmg] damage."
+                $ mhp = mhp - fb_dmg
                 $ mana = mana - 15
                 if burn_chance <= 25:
                     "[m_name] is set ablaze!"
@@ -266,7 +271,7 @@ label rpg_heal_sequence:
     menu:
         "Who do you want to use the health potion on?"
         "Use on yourself":
-            $ heal_amt = random.randrange(40,56)
+            $ heal_amt = renpy.random.randint(40, 55)
             $ php = php + heal_amt
             "You healed [heal_amt] hp!"
             if php > 100:
@@ -275,7 +280,7 @@ label rpg_heal_sequence:
             jump rpg_monika
 
         "Use on [m_name]":
-            $ heal_amt = random.randrange(50,101)
+            $ heal_amt = renpy.random.randint(50, 100)
             $ mhp = mhp + heal_amt
             if mhp > mhpmax:
                 $ mhp = mhpmax
@@ -317,12 +322,12 @@ label rpg_monika:
     # Different status effect messages to change and check for.
     if protect_turn > 0:
         "You are shielding yourself. Your shield will wear off in [protect_turn] turn(s)."
-        $ protect = (float)(random.randrange(1,4))/7.5
+        $ protect = float(renpy.random.randint(1, 3)) / 7.5
         $ protect_turn = protect_turn - 1
     else:
         $ protect = 1
     if heal_turn > 0:
-        $ heal_amt = random.randrange(8,13)
+        $ heal_amt = renpy.random.randint(8, 12)
         "You feel traces of healing. You heal [heal_amt] hp. The lingering traces will end in [heal_turn] turn(s)."
         $ php = php + heal_amt
         if php > 100:
@@ -330,12 +335,12 @@ label rpg_monika:
         $ heal_turn = heal_turn - 1
     if swift_turn > 0:
         "You feel fast. Your swiftness will end in [swift_turn] turn(s)."
-        $ swift = random.randrange(15,31)
+        $ swift = renpy.random.randint(15, 30)
         $ swift_turn = swift_turn - 1
     else:
         $ swift = 0
     if burn_turn > 0:
-        $ burn = random.randrange(5,13)
+        $ burn = renpy.random.randint(5, 12)
         m 6wud "{nw}"
         "[m_name] is burning! (-[burn] hp)" 
         "[m_name] will stop burning in [burn_turn] turn(s)."
@@ -343,10 +348,10 @@ label rpg_monika:
         $ mhp = mhp-burn
 
     # Sandwiched between to make sure phase 2 and win triggers properly, even if frozen.
-    if mhp <= mhpmax*0.4 and phase2 == 0:
-        jump rpg_monika_phase2
     if mhp <= 0:
         jump rpg_win
+    elif mhp <= mhpmax*0.4 and phase2 == 0:
+        jump rpg_monika_phase2
     
     # Freeze condition below to ensure proper flow.
     if freeze_turn > 0:
@@ -354,7 +359,7 @@ label rpg_monika:
         "[m_name] is frozen!" 
         "She will unfreeze in [freeze_turn] turn(s)."
         $ freeze_turn = freeze_turn - 1
-        jump rpg_menu
+        jump rpg_turn_start
     else: 
         $ rng = renpy.random.randint (1, 4)
         if rng == 1:
@@ -371,9 +376,9 @@ label rpg_monika:
 # Monika does a basic attack (Will add more skills later)
 label rpg_monika_attack:
     m 1efa "{nw}"
-    $ ran_miss = random.randrange(0,100)
+    $ ran_miss = renpy.random.randint(0, 99)
     if (m_hitrate - swift) > ran_miss:
-        $ mattack = (int)(round((random.randrange(15,35) + phase2) * protect * m_diff))
+        $ mattack = int(round((renpy.random.randint(15, 34) + phase2) * protect * m_diff))
         "[m_name] deals [mattack] damage."
         $ php = php - mattack
     else:
@@ -381,7 +386,7 @@ label rpg_monika_attack:
     if php <= 0:
         jump rpg_lose
     else:
-        jump rpg_menu
+        jump rpg_turn_start
     return
 
 # Monika is now scary...
@@ -402,7 +407,7 @@ label rpg_monika_phase2:
         "[m_name] cleared all status effects!"
     "[m_name] will permanently inflict more damage."
     $ play_song("<loop 0.01>/mod_assets/bgm/eurobeatreality.ogg")
-    jump rpg_menu
+    jump rpg_turn_start
     return
 
 # Aww, you lost.
@@ -414,6 +419,8 @@ label rpg_lose:
     m 4tuu "I won..."
     m 7hua "But maybe you will have better luck next time."
     m 5hubla "Hehehe~"
+    if phase2 > 0:
+        call mas_change_weather (mas_weather_def, by_user=False)
     $ play_song(persistent.current_track)
     $ mas_gainAffection(0.25,m_diff+0.1,False)
     return
@@ -434,5 +441,7 @@ label rpg_win:
     m 2tsbla "I didn't think you could beat me."
     m 5ekbfa "That was so much fun, [mas_get_player_nickname()]."
     m 5skbfb "Maybe we should fight again sometime."
+    if phase2 > 0:
+        call mas_change_weather (mas_weather_def, by_user=False)
     $ mas_gainAffection(0.75,m_diff+0.1,False)
     return

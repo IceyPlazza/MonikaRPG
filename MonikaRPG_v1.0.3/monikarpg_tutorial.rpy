@@ -50,7 +50,7 @@ label rpg_tutorial_mechanics:
             m 3esd "Most actions you or I can take will be influenced by RNG."
             m 4wud "That means sometimes, the numbers to your actions can be amazingly high, or disappointingly low. It's the same for my actions."
             m 7lksdla "However, there are reasonable minimums, since I know how frustrating it is when your move seems to do barely anything."
-            m 4esb "But don't be too discourages by that!"
+            m 4esb "But don't be too discouraged by that!"
             m 5tsu "After all... what's a good RPG without some RNG?"
             jump rpg_tutorial_mechanics
 
