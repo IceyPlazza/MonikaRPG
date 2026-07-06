@@ -4,9 +4,16 @@ This is my first submod... hope you guys enjoy!
 
 ![screenshot0017](https://github.com/user-attachments/assets/b9bea606-6f11-48a2-abdf-98b64e4fad5c)
 
-### Version 1.0.3
+### Version 1.0.4
 
-Bugfixes, tweaked some texts, adjusted some values.
+Squashed a lot of bugs.
+
+- Fixed mana exploit from canceling spells
+- Fixed Fireball's lack of damage sometimes
+- Fixed Phase transition if you happened to one shot Monika
+- Fixed weather transition from conclusion of game
+- Fixed some typos
+- Refine turn transition logic
 
 ## Features:
 - A fully playable text-based RPG incorporated into the 'Play' menu!
